@@ -1,4 +1,4 @@
-module github.com/alecthomas/localcache
+module github.com/s4s0l/localcache
 
 go 1.17
 

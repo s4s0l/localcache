@@ -40,6 +40,15 @@ func NewForTesting(t testing.TB) *Cache {
 	t.Cleanup(func() { _ = os.RemoveAll(root) })
 	return &Cache{root}
 }
+func NewInDir(baseDir, name string) (*Cache, error) {
+
+	root := filepath.Join(baseDir, name)
+	err := os.Mkdir(root, 0700)
+	if err != nil && !os.IsExist(err) {
+		return nil, fmt.Errorf("couldn't create cache dir: %w", err)
+	}
+	return &Cache{root}, nil
+}
 
 // New creates a new cache "name" under the user's cache directory.
 func New(name string) (*Cache, error) {
@@ -47,12 +56,7 @@ func New(name string) (*Cache, error) {
 	if err != nil {
 		return nil, fmt.Errorf("couldn't locate cache dir: %w", err)
 	}
-	root := filepath.Join(cacheDir, name)
-	err = os.Mkdir(root, 0700)
-	if err != nil && !os.IsExist(err) {
-		return nil, fmt.Errorf("couldn't create cache dir: %w", err)
-	}
-	return &Cache{root}, nil
+	return NewInDir(cacheDir, name)
 }
 
 // Commit atomically commits an in-flight file or directory creation Transaction to the Cache.
@@ -109,7 +113,7 @@ func (c *Cache) Rollback(tx Transaction) error {
 //
 // It will Rollback on error, however Commit must be called manually.
 //
-//     defer cache.RollbackOnError(tx, &err)
+//	defer cache.RollbackOnError(tx, &err)
 func (c *Cache) RollbackOnError(tx Transaction, err *error) {
 	if *err != nil {
 		rberr := c.Rollback(tx)
@@ -123,7 +127,7 @@ func (c *Cache) RollbackOnError(tx Transaction, err *error) {
 //
 // It will Rollback on error or otherwise Commit.
 //
-//     defer cache.RollbackOrCommit(tx, &err)
+//	defer cache.RollbackOrCommit(tx, &err)
 func (c *Cache) RollbackOrCommit(tx Transaction, err *error) {
 	if *err == nil {
 		_, *err = c.Commit(tx)
@@ -140,8 +144,8 @@ func (c *Cache) RollbackOrCommit(tx Transaction, err *error) {
 // Commit() must be called with the returned Transaction to atomically
 // add the created directory to the Cache.
 //
-//     tx, dir, err := cache.Mkdir("my-key")
-//     err = cache.Commit(tx)
+//	tx, dir, err := cache.Mkdir("my-key")
+//	err = cache.Commit(tx)
 func (c *Cache) Mkdir(key string) (Transaction, string, error) {
 	path, err := c.pathForKey(key)
 	if err != nil {
@@ -159,9 +163,9 @@ func (c *Cache) Mkdir(key string) (Transaction, string, error) {
 // Commit() must be called with the returned Transaction to atomically
 // add the created file to the Cache.
 //
-//     tx, f, err := cache.Create("my-key")
-//     err = f.Close()
-//     err = cache.Commit(tx)
+//	tx, f, err := cache.Create("my-key")
+//	err = f.Close()
+//	err = cache.Commit(tx)
 func (c *Cache) Create(key string) (Transaction, *os.File, error) {
 	path, err := c.pathForKey(key)
 	if err != nil {
